@@ -13,6 +13,7 @@ import (
 	"go/token"
 	"io"
 	"os"
+	"path"
 	"reflect"
 	"strconv"
 	"strings"
@@ -96,6 +97,8 @@ type extractor struct {
 	literals map[string][]string
 	// openTypes have a const whose value cannot be read here, so a union would be a lie.
 	openTypes map[string]bool
+	// imports maps the name a package has in this file to its import path.
+	imports map[string]string
 }
 
 // encodingMethods replace what encoding/json writes for a type, which the
@@ -144,6 +147,7 @@ func Extract(src []byte) Schema {
 		declared:  map[string]bool{},
 		literals:  map[string][]string{},
 		openTypes: map[string]bool{},
+		imports:   map[string]string{},
 	}
 
 	file, err := parser.ParseFile(e.fset, "input.go", src, parser.ParseComments|parser.AllErrors)
@@ -163,6 +167,17 @@ func Extract(src []byte) Schema {
 		e.report(codeDeclaration, e.identSpan(file.Name), "package main cannot be imported, so its functions cannot be exported.")
 	}
 
+	for _, spec := range file.Imports {
+		importPath, err := strconv.Unquote(spec.Path.Value)
+		if err != nil {
+			continue
+		}
+		name := path.Base(importPath)
+		if spec.Name != nil {
+			name = spec.Name.Name
+		}
+		e.imports[name] = importPath
+	}
 	for _, decl := range file.Decls {
 		if gen, ok := decl.(*ast.GenDecl); ok && gen.Tok == token.TYPE {
 			for _, spec := range gen.Specs {
@@ -222,7 +237,7 @@ func (e *extractor) addConsts(gen *ast.GenDecl) {
 			e.schema.Consts = append(e.schema.Consts, Const{
 				Name:  name.Name,
 				Span:  e.identSpan(name),
-				Doc:   docOf(value.Doc, gen.Doc, len(gen.Specs)),
+				Doc:   specDoc(value.Doc, value.Comment, gen, len(gen.Specs)),
 				Value: literal,
 			})
 		}
@@ -233,7 +248,7 @@ func (e *extractor) addType(gen *ast.GenDecl, spec *ast.TypeSpec) {
 	if !spec.Name.IsExported() {
 		return
 	}
-	t := Type{Name: spec.Name.Name, Span: e.identSpan(spec.Name), Doc: docOf(spec.Doc, gen.Doc, len(gen.Specs))}
+	t := Type{Name: spec.Name.Name, Span: e.identSpan(spec.Name), Doc: specDoc(spec.Doc, spec.Comment, gen, len(gen.Specs))}
 	if spec.TypeParams != nil {
 		e.report(codeDeclaration, t.Span, "Generic types are not supported.")
 		t.Alias = "unknown"
@@ -255,6 +270,7 @@ func (e *extractor) addType(gen *ast.GenDecl, spec *ast.TypeSpec) {
 
 func (e *extractor) fields(structType *ast.StructType) []Field {
 	var fields []Field
+	seen := map[string]bool{}
 	for _, field := range structType.Fields.List {
 		if len(field.Names) == 0 {
 			e.report(codeType, e.span(field.Type), "Embedded fields are not supported.")
@@ -265,12 +281,18 @@ func (e *extractor) fields(structType *ast.StructType) []Field {
 			if !name.IsExported() {
 				continue
 			}
-			f := Field{Name: name.Name, Span: e.identSpan(name), TS: ts, Doc: docOf(field.Doc, nil, 0)}
+			f := Field{Name: name.Name, Span: e.identSpan(name), TS: ts, Doc: docOf(field.Doc, field.Comment, 1)}
 			if field.Tag != nil {
 				if skip := e.applyTag(&f, field.Tag); skip {
 					continue
 				}
 			}
+			// encoding/json drops both fields, so neither reaches the other side.
+			if seen[f.Name] {
+				e.report(codeType, f.Span, fmt.Sprintf("Another field in this struct is also named '%s' in JSON.", f.Name))
+				continue
+			}
+			seen[f.Name] = true
 			fields = append(fields, f)
 		}
 	}
@@ -302,10 +324,11 @@ func (e *extractor) applyTag(f *Field, tag *ast.BasicLit) bool {
 	if name == "" {
 		return false
 	}
+	f.Name = name
 	// Spans must land on the name inside the tag, so "go to definition" from TypeScript finds it.
-	if i := strings.Index(tag.Value, `json:"`); i >= 0 {
+	// A tag written with escapes has no such text, so it keeps the span of the field.
+	if i := strings.Index(tag.Value, `json:"`+name); i >= 0 {
 		start := e.fset.Position(tag.Pos()).Offset + i + len(`json:"`)
-		f.Name = name
 		f.Span = Span{e.utf16At[start], e.utf16At[start+len(name)]}
 		f.Tagged = true
 	}
@@ -327,6 +350,14 @@ func (e *extractor) addFunc(fn *ast.FuncDecl) {
 	}
 
 	f := Func{Name: fn.Name.Name, Span: span, Doc: docOf(fn.Doc, nil, 0), Params: []Param{}, Result: "void"}
+	used := map[string]bool{}
+	addParam := func(name, ts string) {
+		for used[name] {
+			name += "_"
+		}
+		used[name] = true
+		f.Params = append(f.Params, Param{Name: name, TS: ts})
+	}
 	for _, field := range fn.Type.Params.List {
 		if _, variadic := field.Type.(*ast.Ellipsis); variadic {
 			e.report(codeSignature, e.span(field.Type), "Variadic functions are not supported.")
@@ -334,7 +365,7 @@ func (e *extractor) addFunc(fn *ast.FuncDecl) {
 		}
 		ts := e.tsType(field.Type)
 		if len(field.Names) == 0 {
-			f.Params = append(f.Params, Param{Name: fmt.Sprintf("arg%d", len(f.Params)), TS: ts})
+			addParam(fmt.Sprintf("arg%d", len(f.Params)), ts)
 		}
 		for _, name := range field.Names {
 			paramName := name.Name
@@ -343,7 +374,7 @@ func (e *extractor) addFunc(fn *ast.FuncDecl) {
 			} else if reservedWords[paramName] {
 				paramName += "_"
 			}
-			f.Params = append(f.Params, Param{Name: paramName, TS: ts})
+			addParam(paramName, ts)
 		}
 	}
 
@@ -426,20 +457,33 @@ func (e *extractor) tsType(expr ast.Expr) string {
 		return element + "[] | null"
 	case *ast.MapType:
 		key := e.tsType(t.Key)
-		if key != "string" && !e.declared[key] {
-			e.report(codeType, e.span(t.Key), "Only string keys are supported in maps.")
+		if ident, ok := t.Key.(*ast.Ident); !ok || ident.Name == "float32" || ident.Name == "float64" || key == "boolean" || key == "unknown" {
+			e.report(codeType, e.span(t.Key), "Only string and integer keys can be written to JSON.")
 		}
 		return "Partial<Record<" + key + ", " + e.tsType(t.Value) + ">> | null"
 	case *ast.SelectorExpr:
-		if pkg, ok := t.X.(*ast.Ident); ok && pkg.Name == "time" && t.Sel.Name == "Time" {
+		if pkg, ok := t.X.(*ast.Ident); ok && e.imports[pkg.Name] == "time" && t.Sel.Name == "Time" {
 			return "string"
 		}
+	case *ast.StructType:
+		var members []string
+		for _, field := range e.fields(t) {
+			name := field.Name
+			if !token.IsIdentifier(name) {
+				name = strconv.Quote(name)
+			}
+			if field.Optional {
+				name += "?"
+			}
+			members = append(members, name+": "+field.TS)
+		}
+		return "{ " + strings.Join(members, "; ") + " }"
 	case *ast.InterfaceType:
 		if len(t.Methods.List) == 0 {
 			return "unknown"
 		}
 	}
-	e.report(codeType, e.span(expr), "This type cannot be sent through JSON to TypeScript.")
+	e.report(codeType, e.span(expr), "This type has no JSON form that TypeScript can describe.")
 	return "unknown"
 }
 
@@ -468,6 +512,14 @@ func isError(expr ast.Expr) bool {
 	return ok && ident.Name == "error"
 }
 
+// specDoc prefers a spec's own comments over the comment of its group.
+func specDoc(doc, comment *ast.CommentGroup, gen *ast.GenDecl, specs int) string {
+	if text := docOf(doc, comment, 1); text != "" {
+		return text
+	}
+	return docOf(nil, gen.Doc, specs)
+}
+
 // docOf falls back to the group's comment only when the group has a single spec.
 func docOf(doc, groupDoc *ast.CommentGroup, specs int) string {
 	if doc == nil && specs == 1 {
@@ -477,6 +529,20 @@ func docOf(doc, groupDoc *ast.CommentGroup, specs int) string {
 }
 
 func jsonLiteral(expr ast.Expr) string {
+	switch v := expr.(type) {
+	case *ast.Ident:
+		if v.Name == "true" || v.Name == "false" {
+			return v.Name
+		}
+		return ""
+	case *ast.UnaryExpr:
+		if number, ok := v.X.(*ast.BasicLit); ok && v.Op == token.SUB && number.Kind != token.STRING {
+			if literal := jsonLiteral(number); literal != "" {
+				return "-" + literal
+			}
+		}
+		return ""
+	}
 	lit, ok := expr.(*ast.BasicLit)
 	if !ok {
 		return ""

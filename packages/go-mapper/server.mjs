@@ -25,8 +25,10 @@ function writeTypes(schema, b) {
     for (const field of type.fields) {
       writeDoc(b, "  ", field.doc);
       b.append("  ");
-      if (!IDENTIFIER.test(field.name)) {
-        b.appendAlias(JSON.stringify(field.name), field.span.start, field.span.end, NO_RENAME);
+      // A name that differs from the source text cannot be copied from it.
+      if (!IDENTIFIER.test(field.name) || b.originalText.slice(field.span.start, field.span.end) !== field.name) {
+        const name = IDENTIFIER.test(field.name) ? field.name : JSON.stringify(field.name);
+        b.appendAlias(name, field.span.start, field.span.end, NO_RENAME);
       } else {
         // A tag only names the field on the wire, so renaming it is safe for Go.
         b.appendVerbatim(field.span.start, field.span.end, field.tagged ? SpanMapFeature.All : NO_RENAME);

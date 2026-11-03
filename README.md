@@ -59,7 +59,7 @@ web/app.ts(51,30): error TS2339: Property 'total' does not exist on type 'Quote'
 JSON に載せられない型を使うと、Go のファイルの該当箇所がエラーになります。
 
 ```text
-shared.go(8,21): error go9201: This type cannot be sent through JSON to TypeScript.
+shared.go(8,21): error go9201: This type has no JSON form that TypeScript can describe.
 ```
 
 ## 仕組み

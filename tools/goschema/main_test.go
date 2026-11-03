@@ -142,6 +142,103 @@ func F(class string, function int, await bool, ok bool) {}
 	}
 }
 
+func TestTagWrittenWithEscapes(t *testing.T) {
+	src := "package p\ntype T struct { A int \"json:\\\"wire\\\"\" }\n"
+	f := extract(t, src).Types[0].Fields[0]
+	if f.Name != "wire" || f.Tagged || slice(src, f.Span) != "A" {
+		t.Errorf("field = %+v", f)
+	}
+}
+
+func TestOtherTagsAreNotMistakenForJSON(t *testing.T) {
+	src := "package p\ntype T struct { A int `myjson:\"other\" json:\"wire\"` }\n"
+	f := extract(t, src).Types[0].Fields[0]
+	if f.Name != "wire" || slice(src, f.Span) != "wire" {
+		t.Errorf("field = %+v", f)
+	}
+}
+
+func TestBoolAndNegativeConsts(t *testing.T) {
+	s := extract(t, `package p
+const Debug = true
+const Min = -1
+const Low = -0.5
+type Flag bool
+const On Flag = true
+const Bad = -"x"
+`)
+	if len(s.Consts) != 4 || s.Consts[0].Value != "true" || s.Consts[1].Value != "-1" || s.Consts[2].Value != "-0.5" {
+		t.Errorf("consts = %+v", s.Consts)
+	}
+	if s.Types[0].Alias != "true" {
+		t.Errorf("Flag = %s", s.Types[0].Alias)
+	}
+	if len(s.Diagnostics) != 1 {
+		t.Errorf("diagnostics = %+v", s.Diagnostics)
+	}
+}
+
+func TestInlineStructAndMapKeys(t *testing.T) {
+	s := extract(t, "package p\ntype K string\ntype T struct {\n"+
+		"	Items []struct { A int `json:\"a\"`; B string `json:\"b-c,omitempty\"` } `json:\"items\"`\n"+
+		"	ByID map[int]string `json:\"byId\"`\n"+
+		"	ByKey map[K]bool `json:\"byKey\"`\n"+
+		"}\n")
+	if len(s.Diagnostics) != 0 {
+		t.Fatalf("diagnostics: %+v", s.Diagnostics)
+	}
+	fields := s.Types[1].Fields
+	if got := fields[0].TS; got != `{ a: number; "b-c"?: string }[] | null` {
+		t.Errorf("Items = %s", got)
+	}
+	if got := fields[1].TS; got != "Partial<Record<number, string>> | null" {
+		t.Errorf("ByID = %s", got)
+	}
+	if got := fields[2].TS; got != "Partial<Record<K, boolean>> | null" {
+		t.Errorf("ByKey = %s", got)
+	}
+}
+
+func TestTimeIsResolvedThroughImports(t *testing.T) {
+	s := extract(t, `package p
+import clock "time"
+type T struct { At clock.Time `+"`json:\"at\"`"+` }
+`)
+	if len(s.Diagnostics) != 0 || s.Types[0].Fields[0].TS != "string" {
+		t.Errorf("schema = %+v", s)
+	}
+	s = extract(t, `package p
+import time "example.com/notstd"
+type T struct { At time.Time }
+`)
+	if len(s.Diagnostics) != 1 {
+		t.Errorf("diagnostics = %+v", s.Diagnostics)
+	}
+}
+
+func TestTrailingComments(t *testing.T) {
+	s := extract(t, "package p\ntype T struct {\n\tA int // 合計\n\tB int // 小計\n}\ntype K string // 種類\nconst X = 1 // 上限\n")
+	if got := s.Types[0].Fields[1].Doc; got != "小計" {
+		t.Errorf("field doc = %q", got)
+	}
+	if got := s.Types[1].Doc; got != "種類" {
+		t.Errorf("type doc = %q", got)
+	}
+	if got := s.Consts[0].Doc; got != "上限" {
+		t.Errorf("const doc = %q", got)
+	}
+}
+
+func TestNameCollisions(t *testing.T) {
+	s := extract(t, "package p\nfunc F(class string, class_ string) {}\ntype T struct { A int `json:\"x\"`; B int `json:\"x\"` }\n")
+	if p := s.Funcs[0].Params; p[0].Name != "class_" || p[1].Name != "class__" {
+		t.Errorf("params = %+v", p)
+	}
+	if len(s.Types[0].Fields) != 1 || len(s.Diagnostics) != 1 || !strings.Contains(s.Diagnostics[0].Message, "also named 'x'") {
+		t.Errorf("schema = %+v", s)
+	}
+}
+
 func TestFuncs(t *testing.T) {
 	s := extract(t, `package p
 type T struct{}
@@ -179,7 +276,7 @@ func TestDiagnostics(t *testing.T) {
 	tests := []struct {
 		name, src, covers, message string
 	}{
-		{"channel", "package p\nfunc F(c chan int) {}\n", "chan int", "cannot be sent"},
+		{"channel", "package p\nfunc F(c chan int) {}\n", "chan int", "no JSON form"},
 		{"int64", "package p\ntype T struct { N int64 }\n", "int64", "JavaScript number"},
 		{"foreign type", "package p\nfunc F(o Other) {}\n", "Other", "not declared in this file"},
 		{"unexported", "package p\ntype t struct{}\nfunc F(v t) {}\n", "t", "unexported"},
