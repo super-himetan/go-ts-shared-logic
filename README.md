@@ -94,7 +94,7 @@ Content Mapper が作るのは型だけで、実行時には使われません�
 | `string`、`bool` | `string`、`boolean` |
 | `int`、`int32`、`float64` など | `number` |
 | `[]T` | `T[] \| null` |
-| `map[string]T`、`map[int]T` | `Partial<Record<string, T>> \| null`、`Partial<Record<number, T>> \| null` |
+| `map[string]T`、`map[int]T` | `{ [__K in string]?: T } \| null`、`{ [__K in number]?: T } \| null` |
 | `struct { A int }` | `{ A: number }` |
 | `*T` | `T \| null` |
 | `time.Time` | `string` |
@@ -114,7 +114,7 @@ Content Mapper が作るのは型だけで、実行時には使われません�
 - `int64`、`uint64`、`uint` は JavaScript の数値で正確に表せない場合があるので、エラーにしています。`int` も Wasm では64ビットなので、2^53 を超える値は正確に渡せません。
 - `int` の引数に `1.5` や `1e30` を渡すと例外になります。TypeScript の型はどちらも `number` なので、コンパイル時には検出できません。
 - `MarshalJSON` などで JSON の形を変える型はエラーにしていますが、別のファイルに書かれたメソッドは検出できません。
-- `const` の union は同じファイルの定数だけから作ります。`Color("blue")` のような変換や別のファイルの定数は型に現れません。
+- `const` の union は同じファイルの定数だけから作ります。`Color("blue")` のような変換、別のファイルの定数、ゼロ値の `""` は型に現れません。
 - ジェネリクス、可変長引数、埋め込みフィールド、リテラル以外の公開 `const` には対応していません。
 - `packages/go-mapper` はこのリポジトリの `bridge` と `tools/goschema` に依存していて、単体では配布できません。
 - `tsc` は mapper のエラーがあると、その先の型エラーを報告しません。

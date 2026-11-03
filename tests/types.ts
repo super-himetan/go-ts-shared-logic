@@ -1,6 +1,8 @@
 // Checked by `pnpm check`. Each @ts-expect-error fails the check if Go stops rejecting that code.
 import { MaxQuantityPerLine, type Order, Price, type Quote, type Size, Validate } from "../shared/checkout/checkout.go";
 
+import type { Table } from "./testdata/names/names.go";
+
 const order: Order = { items: [{ drink: "coffee", size: "M", quantity: 1 }] };
 
 const quote: Quote = Price(order);
@@ -30,4 +32,7 @@ const unhandled = Validate(order).length;
 // @ts-expect-error
 Price();
 
-export { limit, paths, size, total, badDrink, noItems, wrongName, unhandled };
+// Go types may share a name with a TypeScript utility type.
+const table: Table = { byName: { a: { id: 1 } }, byId: { 1: { done: true } }, byKey: { x: 1 } };
+
+export { limit, paths, size, table, total, badDrink, noItems, wrongName, unhandled };

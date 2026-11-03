@@ -230,6 +230,10 @@ func (e *extractor) addConsts(gen *ast.GenDecl) {
 			// Unexported consts are not exported, but Go code can still return them.
 			if typeName != "" {
 				e.literals[typeName] = append(e.literals[typeName], literal)
+				// The other value of a bool is always there, as its zero value.
+				if literal == "true" || literal == "false" {
+					e.openTypes[typeName] = true
+				}
 			}
 			if !name.IsExported() {
 				continue
@@ -460,7 +464,8 @@ func (e *extractor) tsType(expr ast.Expr) string {
 		if ident, ok := t.Key.(*ast.Ident); !ok || ident.Name == "float32" || ident.Name == "float64" || key == "boolean" || key == "unknown" {
 			e.report(codeType, e.span(t.Key), "Only string and integer keys can be written to JSON.")
 		}
-		return "Partial<Record<" + key + ", " + e.tsType(t.Value) + ">> | null"
+		// Not Partial<Record<...>>, which a Go type named Record would shadow.
+		return "{ [__K in " + key + "]?: " + e.tsType(t.Value) + " } | null"
 	case *ast.SelectorExpr:
 		if pkg, ok := t.X.(*ast.Ident); ok && e.imports[pkg.Name] == "time" && t.Sel.Name == "Time" {
 			return "string"

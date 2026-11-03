@@ -170,7 +170,7 @@ const Bad = -"x"
 	if len(s.Consts) != 4 || s.Consts[0].Value != "true" || s.Consts[1].Value != "-1" || s.Consts[2].Value != "-0.5" {
 		t.Errorf("consts = %+v", s.Consts)
 	}
-	if s.Types[0].Alias != "true" {
+	if s.Types[0].Alias != "boolean" {
 		t.Errorf("Flag = %s", s.Types[0].Alias)
 	}
 	if len(s.Diagnostics) != 1 {
@@ -191,10 +191,10 @@ func TestInlineStructAndMapKeys(t *testing.T) {
 	if got := fields[0].TS; got != `{ a: number; "b-c"?: string }[] | null` {
 		t.Errorf("Items = %s", got)
 	}
-	if got := fields[1].TS; got != "Partial<Record<number, string>> | null" {
+	if got := fields[1].TS; got != "{ [__K in number]?: string } | null" {
 		t.Errorf("ByID = %s", got)
 	}
-	if got := fields[2].TS; got != "Partial<Record<K, boolean>> | null" {
+	if got := fields[2].TS; got != "{ [__K in K]?: boolean } | null" {
 		t.Errorf("ByKey = %s", got)
 	}
 }
@@ -261,7 +261,7 @@ func d() {}
 	if a.Params[1] != (Param{"arg1", "string[] | null"}) {
 		t.Errorf("A param 1 = %+v", a.Params[1])
 	}
-	if a.Params[2].TS != "Partial<Record<string, number>> | null" {
+	if a.Params[2].TS != "{ [__K in string]?: number } | null" {
 		t.Errorf("A param 2 = %+v", a.Params[2])
 	}
 	if b := s.Funcs[1]; b.Result != "void" || !b.Throws {
