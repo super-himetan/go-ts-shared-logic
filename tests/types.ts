@@ -1,6 +1,5 @@
 // Checked by `pnpm check`. Each @ts-expect-error fails the check if Go stops rejecting that code.
 import { MaxQuantityPerLine, type Order, Price, type Quote, type Size, Validate } from "../shared/checkout/checkout.go";
-
 import type { Table } from "./testdata/names/names.go";
 
 const order: Order = { items: [{ drink: "coffee", size: "M", quantity: 1 }] };

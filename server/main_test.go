@@ -5,6 +5,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"testing/fstest"
 )
 
 func TestPlaceOrder(t *testing.T) {
@@ -24,12 +25,33 @@ func TestPlaceOrder(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			r := httptest.NewRequest(http.MethodPost, "/api/orders", strings.NewReader(tt.body))
 			w := httptest.NewRecorder()
-			newMux().ServeHTTP(w, r)
+			newHandler(fstest.MapFS{}).ServeHTTP(w, r)
 			if w.Code != tt.status {
 				t.Errorf("status = %d, want %d", w.Code, tt.status)
 			}
 			if !strings.Contains(w.Body.String(), tt.contains) {
 				t.Errorf("body = %s, want it to contain %s", w.Body, tt.contains)
+			}
+		})
+	}
+}
+
+func TestCrossSiteOrdersAreRefused(t *testing.T) {
+	tests := []struct {
+		site   string
+		status int
+	}{
+		{"cross-site", http.StatusForbidden},
+		{"same-origin", http.StatusBadRequest}, // reaches the handler, which rejects the empty body
+	}
+	for _, tt := range tests {
+		t.Run(tt.site, func(t *testing.T) {
+			r := httptest.NewRequest(http.MethodPost, "/api/orders", strings.NewReader("{"))
+			r.Header.Set("Sec-Fetch-Site", tt.site)
+			w := httptest.NewRecorder()
+			newHandler(fstest.MapFS{}).ServeHTTP(w, r)
+			if w.Code != tt.status {
+				t.Errorf("status = %d, want %d", w.Code, tt.status)
 			}
 		})
 	}

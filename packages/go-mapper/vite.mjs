@@ -17,7 +17,7 @@ function buildWasm(dir) {
   const funcs = files.flatMap((file) => extractSchema(readFileSync(file, "utf8")).funcs);
 
   const hash = createHash("sha256").update(pkg.ImportPath).digest("hex").slice(0, 12);
-  const key = `__go_mapper_${hash}`;
+  const key = `__go_mapper_${pkg.Name}_${hash}`;
   const entries = funcs.map(({ name }) => `\t\t${JSON.stringify(name)}: pkg.${name},\n`).join("");
 
   const workDir = join(cacheDir, hash);

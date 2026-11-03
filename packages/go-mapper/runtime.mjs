@@ -15,7 +15,7 @@ export async function loadGoModule(bytes, key) {
   const { instance } = await WebAssembly.instantiate(bytes, go.importObject);
   // Settles only if Go exits: once ready, it blocks forever to keep its functions callable.
   const exited = go.run(instance).then(() => {
-    throw new Error(`The Go module ${key} exited during startup. Its panic message is in the console.`);
+    throw new Error(`The Go module ${key} exited during startup. Any panic message is in the console.`);
   });
   let exports;
   try {

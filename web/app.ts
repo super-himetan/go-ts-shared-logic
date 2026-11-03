@@ -99,7 +99,7 @@ function renderItems() {
       remove.onclick = () => {
         items = items.filter((_, i) => i !== index);
         renderItems();
-        refresh();
+        edited();
       };
 
       row.append(drink, size, quantity, remove);
@@ -110,6 +110,12 @@ function renderItems() {
 
 function update(index: number, patch: Partial<LineItem>) {
   items = items.map((item, i) => (i === index ? { ...item, ...patch } : item));
+  edited();
+}
+
+// The result of the last order says nothing about the order being edited.
+function edited() {
+  $("result").textContent = "";
   refresh();
 }
 
@@ -145,9 +151,9 @@ export function start() {
   $("add-item").onclick = () => {
     items = [...items, { drink: "latte", size: SizeM, quantity: 1 }];
     renderItems();
-    refresh();
+    edited();
   };
-  $("coupon").oninput = refresh;
+  $("coupon").oninput = edited;
   $("order").onsubmit = (event) => {
     event.preventDefault();
     void placeOrder(Price(currentOrder()).total);

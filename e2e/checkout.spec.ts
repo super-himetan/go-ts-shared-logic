@@ -65,6 +65,9 @@ test("a double click places one order", async ({ page }) => {
   await expect(page.getByRole("status")).toContainText("受付:");
   await expect(submit).toBeEnabled();
   expect(posts).toBe(1);
+
+  await page.getByLabel("数量").fill("2");
+  await expect(page.getByRole("status")).toHaveText("");
 });
 
 test("the server recomputes the total and refuses a lower one", async ({ page }) => {
