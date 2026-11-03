@@ -15,7 +15,7 @@ func TestPlaceOrder(t *testing.T) {
 		contains   string
 	}{
 		{"accepted", `{"order":` + coffee + `,"expectedTotal":418}`, http.StatusCreated, `"orderId":"order-1"`},
-		{"tampered total", `{"order":` + coffee + `,"expectedTotal":1}`, http.StatusConflict, "418円"},
+		{"tampered total", `{"order":` + coffee + `,"expectedTotal":1}`, http.StatusConflict, "実際 418円"},
 		{"invalid order", `{"order":{"items":[]},"expectedTotal":0}`, http.StatusUnprocessableEntity, `"path":"items"`},
 		{"not json", `{`, http.StatusBadRequest, "読み取れません"},
 		{"too large", `{"order":{"coupon":"` + strings.Repeat("x", maxBodyBytes) + `"}}`, http.StatusRequestEntityTooLarge, "大きすぎます"},

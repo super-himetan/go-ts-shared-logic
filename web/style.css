@@ -60,6 +60,16 @@ fieldset {
   margin-bottom: 0.5rem;
 }
 
+@media (max-width: 30rem) {
+  .item {
+    grid-template-columns: 1fr 1fr auto;
+  }
+
+  .item select:first-child {
+    grid-column: 1 / -1;
+  }
+}
+
 select,
 input {
   width: 100%;

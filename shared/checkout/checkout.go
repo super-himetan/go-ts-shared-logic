@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"strconv"
 )
 
 // Drink is a product on the menu.
@@ -155,6 +156,19 @@ func Price(order Order) (Quote, error) {
 		Tax:      tax,
 		Total:    subtotal - discount + tax,
 	}, nil
+}
+
+// FormatYen writes an amount the way both the screen and error messages show it.
+func FormatYen(amount int) string {
+	digits := strconv.Itoa(amount)
+	sign := ""
+	if amount < 0 {
+		sign, digits = "-", digits[1:]
+	}
+	for i := len(digits) - 3; i > 0; i -= 3 {
+		digits = digits[:i] + "," + digits[i:]
+	}
+	return sign + digits + "円"
 }
 
 func basePrice(drink Drink) (int, bool) {

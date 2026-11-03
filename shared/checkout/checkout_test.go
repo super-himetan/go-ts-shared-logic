@@ -7,6 +7,15 @@ import (
 	"testing"
 )
 
+func TestFormatYen(t *testing.T) {
+	tests := map[int]string{0: "0円", 999: "999円", 1000: "1,000円", 1234567: "1,234,567円", -387: "-387円", -1290: "-1,290円"}
+	for amount, want := range tests {
+		if got := FormatYen(amount); got != want {
+			t.Errorf("FormatYen(%d) = %q, want %q", amount, got, want)
+		}
+	}
+}
+
 func TestTooManyLines(t *testing.T) {
 	line := LineItem{Drink: DrinkCoffee, Size: SizeS, Quantity: 1}
 	if got := Validate(Order{Items: slices.Repeat([]LineItem{line}, MaxLinesPerOrder)}); got != nil {

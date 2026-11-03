@@ -1,6 +1,7 @@
 import {
   type Drink,
   type ErrorResponse,
+  FormatYen,
   type LineItem,
   MaxQuantityPerLine,
   Menu,
@@ -18,7 +19,6 @@ import {
 } from "../shared/checkout/checkout.go";
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
-const yen = (amount: number) => `${amount.toLocaleString("ja-JP")}円`;
 const menu = Menu() ?? [];
 const sizes: Size[] = [SizeS, SizeM, SizeL];
 
@@ -30,7 +30,7 @@ const currentOrder = (): Order => {
   return coupon ? { items, coupon } : { items };
 };
 
-// Everything below this line is computed by the Go code, without a request.
+// Recomputes the screen with the Go code, without a request.
 function refresh() {
   const order = currentOrder();
   const violations = Validate(order) ?? [];
@@ -45,10 +45,10 @@ function refresh() {
 
 function renderQuote(quote: Quote | undefined) {
   const rows: [string, string][] = [
-    ["小計", quote ? yen(quote.subtotal) : "-"],
-    ["割引", quote ? yen(0 - quote.discount) : "-"],
-    [`消費税 (${TaxPercent}%)`, quote ? yen(quote.tax) : "-"],
-    ["合計", quote ? yen(quote.total) : "-"],
+    ["小計", quote ? FormatYen(quote.subtotal) : "-"],
+    ["割引", quote ? FormatYen(-quote.discount) : "-"],
+    [`消費税 (${TaxPercent}%)`, quote ? FormatYen(quote.tax) : "-"],
+    ["合計", quote ? FormatYen(quote.total) : "-"],
   ];
   $("quote").replaceChildren(
     ...rows.map(([label, value]) => {
@@ -70,7 +70,7 @@ function renderItems() {
 
       const drink = document.createElement("select");
       drink.setAttribute("aria-label", "商品");
-      drink.append(...menu.map((entry) => new Option(`${entry.name} ${yen(entry.price)}`, entry.drink)));
+      drink.append(...menu.map((entry) => new Option(`${entry.name} ${FormatYen(entry.price)}`, entry.drink)));
       drink.value = item.drink;
       drink.onchange = () => update(index, { drink: drink.value as Drink });
 
@@ -83,6 +83,7 @@ function renderItems() {
       const quantity = document.createElement("input");
       quantity.type = "number";
       quantity.setAttribute("aria-label", "数量");
+      quantity.min = "1";
       quantity.max = String(MaxQuantityPerLine);
       quantity.value = String(item.quantity);
       // Go's int rejects anything else, so let Validate report it as out of range.
@@ -120,10 +121,14 @@ async function placeOrder(expectedTotal: number) {
   refresh();
   result.textContent = "送信しています…";
   try {
-    const response = await fetch("/api/orders", { method: "POST", body: JSON.stringify(body) });
+    const response = await fetch("/api/orders", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
     if (response.ok) {
       const { orderId, quote }: PlaceOrderResponse = await response.json();
-      result.textContent = `受付: ${orderId} / サーバーが計算した合計 ${yen(quote.total)}`;
+      result.textContent = `受付: ${orderId} / サーバーが計算した合計 ${FormatYen(quote.total)}`;
     } else {
       const { message }: ErrorResponse = await response.json();
       result.textContent = `拒否 (${response.status}): ${message}`;

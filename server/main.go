@@ -65,7 +65,7 @@ func newMux() *http.ServeMux {
 		}
 		if quote.Total != req.ExpectedTotal {
 			writeJSON(w, http.StatusConflict, checkout.ErrorResponse{
-				Message: fmt.Sprintf("金額が変わりました: 表示 %d円 / 実際 %d円", req.ExpectedTotal, quote.Total),
+				Message: fmt.Sprintf("金額が変わりました: 表示 %s / 実際 %s", checkout.FormatYen(req.ExpectedTotal), checkout.FormatYen(quote.Total)),
 			})
 			return
 		}

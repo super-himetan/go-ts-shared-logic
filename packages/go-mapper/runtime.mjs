@@ -1,3 +1,10 @@
+// JSON writes these as null, which Go would read as a silent zero.
+const encode = (arg) =>
+  JSON.stringify(arg, (_, value) => {
+    if (typeof value === "number" && !Number.isFinite(value)) throw new Error(`Cannot send ${value} to Go.`);
+    return value;
+  }) ?? "null";
+
 // Starts a Go Wasm module and returns a function that looks up its exports.
 // wasm_exec.js must already have defined globalThis.Go.
 export async function loadGoModule(bytes, key) {
@@ -21,7 +28,7 @@ export async function loadGoModule(bytes, key) {
     const fn = exports[name];
     if (!fn) throw new Error(`The Go module ${key} does not export ${name}.`);
     return (...args) => {
-      const { value, error } = fn(...args.map((arg) => JSON.stringify(arg) ?? "null"));
+      const { value, error } = fn(...args.map(encode));
       if (error !== undefined) throw new Error(error);
       return value === "" ? undefined : JSON.parse(value);
     };
