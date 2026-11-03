@@ -32,6 +32,18 @@ pnpm dev
 
 数量やクーポンを変えると、リクエストなしで金額とエラーが更新されます。「表示より安い金額で送る」を押すと、サーバーが同じコードで計算し直して 409 で拒否します。
 
+本番と同じ形で動かすときは、ビルドしてからサーバーだけを起動し、http://localhost:8787 を開きます。
+
+```bash
+pnpm build
+```
+
+```bash
+pnpm server
+```
+
+`pnpm build` は Wasm の Brotli 版と gzip 版も作り、サーバーはブラウザが対応する形式で返します。`assets/` のファイルは名前にハッシュが入っているので、長期間キャッシュされます。
+
 ## Go を変えてみる
 
 `Quote.Total` のタグを `json:"grandTotal"` に変えて、型チェックを実行します。
@@ -41,7 +53,7 @@ pnpm check
 ```
 
 ```text
-web/main.ts(50,30): error TS2339: Property 'total' does not exist on type 'Quote'.
+web/app.ts(51,30): error TS2339: Property 'total' does not exist on type 'Quote'.
 ```
 
 JSON に載せられない型を使うと、Go のファイルの該当箇所がエラーになります。
@@ -105,7 +117,7 @@ Content Mapper が作るのは型だけで、実行時には使われません�
 - `tsc` は mapper のエラーがあると、その先の型エラーを報告しません。
 - 共有できるのは純粋なロジックだけです。DB やファイルを使うコードは Wasm では動きません。
 - `pnpm dev` が自動で再ビルドするのは、import したファイルと同じパッケージの変更だけです。別のパッケージを変えたときは、dev サーバーを再起動します。
-- 通常の Go で作る Wasm は大きく、このデモで約 4.5MB（gzip で約 1.3MB）あります。読み込むまで import 元のモジュールは実行されません。
+- 通常の Go で作る Wasm は大きく、このデモで約 4.5MB（Brotli で約 0.92MB、gzip で約 1.25MB）あります。読み込むまで import 元のモジュールは実行されないので、画面は `web/main.ts` から動的 import し、読み込み中と失敗の表示を出しています。
 
 ## エディタ
 

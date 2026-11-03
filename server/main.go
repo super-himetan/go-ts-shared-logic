@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"sync/atomic"
 
 	"github.com/super-himetan/go-ts-shared-logic/shared/checkout"
@@ -16,7 +17,7 @@ const addr = "localhost:8787"
 
 func main() {
 	mux := newMux()
-	mux.Handle("GET /", http.FileServer(http.Dir("dist")))
+	mux.Handle("GET /", staticHandler(os.DirFS("dist")))
 	log.Printf("listening on http://%s", addr)
 	log.Fatal(http.ListenAndServe(addr, mux))
 }

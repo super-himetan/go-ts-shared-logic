@@ -12,18 +12,21 @@
       <p class="lead">金額と入力チェックは、バックエンドと同じ Go のコードがブラウザの Wasm で動いています。</p>
 
       <form id="order">
-        <div id="items"></div>
-        <button type="button" id="add-item" class="secondary">行を追加</button>
-        <label>
-          クーポン
-          <input id="coupon" autocomplete="off" placeholder="WELCOME10 / STAFF30" />
-        </label>
-        <ul id="violations"></ul>
-        <table id="quote"></table>
-        <button type="submit" id="submit">注文する</button>
-        <button type="button" id="tamper" class="secondary">表示より安い金額で送る</button>
+        <!-- Disabled until the Go code has loaded, because nothing handles a submit before that. -->
+        <fieldset id="controls" disabled>
+          <div id="items"></div>
+          <button type="button" id="add-item" class="secondary">行を追加</button>
+          <label>
+            クーポン
+            <input id="coupon" autocomplete="off" placeholder="WELCOME10 / STAFF30" />
+          </label>
+          <ul id="violations"></ul>
+          <table id="quote"></table>
+          <button type="submit" id="submit">注文する</button>
+          <button type="button" id="tamper" class="secondary">表示より安い金額で送る</button>
+        </fieldset>
       </form>
-      <p id="result" role="status"></p>
+      <p id="result" role="status">読み込んでいます…</p>
     </main>
     <script type="module" src="/web/main.ts"></script>
   </body>

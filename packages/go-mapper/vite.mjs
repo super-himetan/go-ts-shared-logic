@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
+import { brotliCompressSync, constants, gzipSync } from "node:zlib";
 import { cacheDir, extractSchema, go } from "./schema.mjs";
 
 const WASM_EXEC = "\0go-mapper:wasm_exec";
@@ -87,6 +88,19 @@ export function goWasm() {
         ? `import { lookup } from ${JSON.stringify(PACKAGE + Buffer.from(dirname(file)).toString("base64url"))};\n`
         : "";
       return { code: runtime + consts.join("") + funcs.join(""), map: null };
+    },
+    // Too large to compress per request, and it only has to be done once per build.
+    generateBundle(_, bundle) {
+      for (const output of Object.values(bundle)) {
+        if (output.type !== "asset" || !output.fileName.endsWith(".wasm")) continue;
+        const { fileName, source } = output;
+        this.emitFile({
+          type: "asset",
+          fileName: `${fileName}.br`,
+          source: brotliCompressSync(source, { params: { [constants.BROTLI_PARAM_QUALITY]: 11 } }),
+        });
+        this.emitFile({ type: "asset", fileName: `${fileName}.gz`, source: gzipSync(source, { level: 9 }) });
+      }
     },
   };
 }
