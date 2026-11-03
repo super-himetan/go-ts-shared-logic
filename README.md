@@ -53,7 +53,7 @@ pnpm check
 ```
 
 ```text
-web/app.ts(51,30): error TS2339: Property 'total' does not exist on type 'Quote'.
+web/app.ts(51,36): error TS2339: Property 'total' does not exist on type 'Quote'.
 ```
 
 JSON に載せられない型を使うと、Go のファイルの該当箇所がエラーになります。
