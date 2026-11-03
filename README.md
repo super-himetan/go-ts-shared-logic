@@ -14,7 +14,7 @@ TypeScript 7.1 ベータの [Content Mapper](https://devblogs.microsoft.com/type
 
 ## 試す
 
-Go 1.27 以降、Node.js、pnpm が必要です。[mise](https://mise.jdx.dev/) を使っていれば `mise install` ですべて入ります。
+Go 1.27 以降、TinyGo 0.44 以降、Node.js、pnpm が必要です。[mise](https://mise.jdx.dev/) を使っていれば `mise install` ですべて入ります。
 
 ```bash
 pnpm install
@@ -66,7 +66,7 @@ shared.go(8,21): error go9201: This type has no JSON form that TypeScript can de
 
 ```text
 checkout.go ─┬ tsc / エディタ → Content Mapper → goschema → 型
-             ├ Vite プラグイン → goschema と GOOS=js GOARCH=wasm go build → Wasm
+             ├ Vite プラグイン → goschema と Wasm のビルド（pnpm build は TinyGo、pnpm dev は標準の Go）
              └ server/main.go → 普通の import
 ```
 
@@ -119,8 +119,11 @@ Content Mapper が作るのは型だけで、実行時には使われません�
 - `packages/go-mapper` はこのリポジトリの `bridge` と `tools/goschema` に依存していて、単体では配布できません。
 - `tsc` は mapper のエラーがあると、その先の型エラーを報告しません。
 - 共有できるのは純粋なロジックだけです。DB やファイルを使うコードは Wasm では動きません。
+- `time.Sleep` のように待つ処理は、TinyGo では JavaScript からの呼び出しの中で使えず、例外になります。
+- `pnpm dev` と `vitest` は標準の Go を使います。TinyGo は再ビルドに10秒以上かかるためです。TinyGo の `reflect` や標準ライブラリの対応は標準の Go より狭いので、`pnpm test` は Wasm のテストを両方のコンパイラで実行し、`pnpm e2e` は TinyGo のビルドを動かします。
+- `GO_WASM_COMPILER=tinygo` または `go` で、コンパイラを指定できます。標準の Go で `pnpm build` すると、Wasm は約 4.5MB（Brotli で約 0.92MB）になります。
 - `pnpm dev` が自動で再ビルドするのは、import したファイルと同じパッケージの変更だけです。別のパッケージを変えたときは、dev サーバーを再起動します。
-- 通常の Go で作る Wasm は大きく、このデモで約 4.5MB（Brotli で約 0.92MB、gzip で約 1.25MB）あります。読み込むまで import 元のモジュールは実行されないので、画面は `web/main.ts` から動的 import し、読み込み中と失敗の表示を出しています。
+- `pnpm build` の Wasm は TinyGo で作っていて、このデモで約 1.05MB（Brotli で約 278KB、gzip で約 383KB）あります。読み込むまで import 元のモジュールは実行されないので、画面は `web/main.ts` から動的 import し、読み込み中と失敗の表示を出しています。
 
 ## エディタ
 

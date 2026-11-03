@@ -14,9 +14,10 @@ export async function loadGoModule(bytes, key) {
   });
   const { instance } = await WebAssembly.instantiate(bytes, go.importObject);
   // Settles only if Go exits: once ready, it blocks forever to keep its functions callable.
-  const exited = go.run(instance).then(() => {
-    throw new Error(`The Go module ${key} exited during startup. Any panic message is in the console.`);
-  });
+  const failed = (cause) => {
+    throw new Error(`The Go module ${key} exited during startup. Any panic message is in the console.`, { cause });
+  };
+  const exited = go.run(instance).then(failed, failed);
   let exports;
   try {
     exports = await Promise.race([ready, exited]);
@@ -28,7 +29,10 @@ export async function loadGoModule(bytes, key) {
     const fn = exports[name];
     if (!fn) throw new Error(`The Go module ${key} does not export ${name}.`);
     return (...args) => {
-      const { value, error } = fn(...args.map(encode));
+      const result = fn(...args.map(encode));
+      // TinyGo cannot wait inside a call from JavaScript, and returns nothing if the function tries.
+      if (result === undefined) throw new Error(`${name} blocked, which TinyGo does not allow in a call from JavaScript.`);
+      const { value, error } = result;
       if (error !== undefined) throw new Error(error);
       return value === "" ? undefined : JSON.parse(value);
     };

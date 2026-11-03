@@ -6,7 +6,7 @@ import "syscall/js"
 
 // Serve hands the functions to the JavaScript callback stored at
 // globalThis[key], then keeps the Go runtime alive so they stay callable.
-func Serve(key string, funcs map[string]any) {
+func Serve(key string, funcs map[string]Func) {
 	exports := map[string]any{}
 	for name, fn := range funcs {
 		exports[name] = js.FuncOf(func(_ js.Value, args []js.Value) any {
