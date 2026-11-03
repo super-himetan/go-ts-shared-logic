@@ -1,0 +1,21 @@
+{
+  "name": "go-ts-shared-logic",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@11.1.2",
+  "scripts": {
+    "check": "tsc --noEmit --runExternalCode",
+    "dev": "vite --port 5184 --strictPort",
+    "server": "go run ./server",
+    "build": "vite build",
+    "test": "go test ./... && vitest run"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "go-mapper": "link:./packages/go-mapper",
+    "ts-content-mapper": "0.1.1",
+    "typescript": "7.1.0-beta",
+    "vite": "^8.0.0",
+    "vitest": "^5.0.5"
+  }
+}

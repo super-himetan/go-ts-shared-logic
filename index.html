@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Go と TypeScript のロジック共有</title>
+    <link rel="stylesheet" href="/web/style.css" />
+  </head>
+  <body>
+    <main>
+      <h1>コーヒーの注文</h1>
+      <p class="lead">金額と入力チェックは、バックエンドと同じ Go のコードがブラウザの Wasm で動いています。</p>
+
+      <form id="order">
+        <div id="items"></div>
+        <button type="button" id="add-item" class="secondary">行を追加</button>
+        <label>
+          クーポン
+          <input id="coupon" autocomplete="off" placeholder="WELCOME10 / STAFF30" />
+        </label>
+        <ul id="violations"></ul>
+        <table id="quote"></table>
+        <button type="submit" id="submit">注文する</button>
+        <button type="button" id="tamper" class="secondary">表示より安い金額で送る</button>
+      </form>
+      <p id="result" role="status"></p>
+    </main>
+    <script type="module" src="/web/main.ts"></script>
+  </body>
+</html>

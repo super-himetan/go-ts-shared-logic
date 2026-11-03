@@ -1,0 +1,46 @@
+[
+  {
+    "name": "1杯",
+    "order": { "items": [{ "drink": "coffee", "size": "S", "quantity": 1 }] },
+    "quote": { "subtotal": 380, "discount": 0, "tax": 38, "total": 418 },
+    "violationPaths": []
+  },
+  {
+    "name": "サイズ加算と複数行",
+    "order": {
+      "items": [
+        { "drink": "latte", "size": "L", "quantity": 2 },
+        { "drink": "matcha", "size": "M", "quantity": 3 }
+      ]
+    },
+    "quote": { "subtotal": 2830, "discount": 0, "tax": 283, "total": 3113 },
+    "violationPaths": []
+  },
+  {
+    "name": "割引と税はそれぞれ切り捨て",
+    "order": {
+      "items": [{ "drink": "coffee", "size": "M", "quantity": 3 }],
+      "coupon": "STAFF30"
+    },
+    "quote": { "subtotal": 1290, "discount": 387, "tax": 90, "total": 993 },
+    "violationPaths": []
+  },
+  {
+    "name": "空の注文",
+    "order": { "items": [] },
+    "violationPaths": ["items"]
+  },
+  {
+    "name": "itemsがnull",
+    "order": { "items": null },
+    "violationPaths": ["items"]
+  },
+  {
+    "name": "複数の問題をすべて返す",
+    "order": {
+      "items": [{ "drink": "tea", "size": "XL", "quantity": 10 }],
+      "coupon": "NOPE"
+    },
+    "violationPaths": ["items[0].drink", "items[0].size", "items[0].quantity", "coupon"]
+  }
+]
