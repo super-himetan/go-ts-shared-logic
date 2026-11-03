@@ -5,6 +5,7 @@ package checkout
 import (
 	"errors"
 	"fmt"
+	"slices"
 )
 
 // Drink is a product on the menu.
@@ -27,6 +28,9 @@ const (
 
 // MaxQuantityPerLine is the most cups one line of an order can hold.
 const MaxQuantityPerLine = 9
+
+// MaxLinesPerOrder is the most lines one order can hold.
+const MaxLinesPerOrder = 20
 
 // TaxPercent is the consumption tax rate.
 const TaxPercent = 10
@@ -97,7 +101,7 @@ var couponPercent = map[string]int{"WELCOME10": 10, "STAFF30": 30}
 
 // Menu returns everything that can be ordered.
 func Menu() []MenuEntry {
-	return menu
+	return slices.Clone(menu)
 }
 
 // Validate returns every problem with the order, or nil if it can be placed.
@@ -109,6 +113,9 @@ func Validate(order Order) []Violation {
 
 	if len(order.Items) == 0 {
 		add("items", "商品を1つ以上選んでください")
+	}
+	if len(order.Items) > MaxLinesPerOrder {
+		add("items", "1回の注文は%d行までです", MaxLinesPerOrder)
 	}
 	for i, item := range order.Items {
 		if _, ok := basePrice(item.Drink); !ok {

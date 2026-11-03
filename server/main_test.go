@@ -18,6 +18,7 @@ func TestPlaceOrder(t *testing.T) {
 		{"tampered total", `{"order":` + coffee + `,"expectedTotal":1}`, http.StatusConflict, "418円"},
 		{"invalid order", `{"order":{"items":[]},"expectedTotal":0}`, http.StatusUnprocessableEntity, `"path":"items"`},
 		{"not json", `{`, http.StatusBadRequest, "読み取れません"},
+		{"too large", `{"order":{"coupon":"` + strings.Repeat("x", maxBodyBytes) + `"}}`, http.StatusRequestEntityTooLarge, "大きすぎます"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

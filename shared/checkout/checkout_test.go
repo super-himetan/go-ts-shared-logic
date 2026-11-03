@@ -7,6 +7,24 @@ import (
 	"testing"
 )
 
+func TestTooManyLines(t *testing.T) {
+	line := LineItem{Drink: DrinkCoffee, Size: SizeS, Quantity: 1}
+	if got := Validate(Order{Items: slices.Repeat([]LineItem{line}, MaxLinesPerOrder)}); got != nil {
+		t.Errorf("a full order was rejected: %+v", got)
+	}
+	got := Validate(Order{Items: slices.Repeat([]LineItem{line}, MaxLinesPerOrder+1)})
+	if len(got) != 1 || got[0].Path != "items" {
+		t.Errorf("violations = %+v", got)
+	}
+}
+
+func TestMenuCannotBeChangedByCallers(t *testing.T) {
+	Menu()[0].Price = 1
+	if Menu()[0].Price == 1 {
+		t.Error("changing the result of Menu changed the menu")
+	}
+}
+
 // The same file runs against the Wasm build in tests/wasm.test.ts.
 func TestCases(t *testing.T) {
 	raw, err := os.ReadFile("testdata/cases.json")

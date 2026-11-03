@@ -31,6 +31,7 @@ func TestStaticHandler(t *testing.T) {
 		{name: "page must be revalidated", path: "/", acceptEncoding: "br", status: 200, body: "<!doctype html>", cache: "no-cache", contentType: "text/html; charset=utf-8"},
 		{name: "missing asset is not cached", path: "/assets/none.js", status: 404},
 		{name: "outside the root", path: "/../secret", status: 404},
+		{name: "no directory listing", path: "/assets/", status: 404},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

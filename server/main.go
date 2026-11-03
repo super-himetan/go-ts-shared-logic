@@ -4,22 +4,36 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
 	"sync/atomic"
+	"time"
 
 	"github.com/super-himetan/go-ts-shared-logic/shared/checkout"
 )
 
-const addr = "localhost:8787"
+const (
+	addr = "localhost:8787"
+	// maxBodyBytes easily holds the largest order that Validate accepts.
+	maxBodyBytes = 64 << 10
+)
 
 func main() {
 	mux := newMux()
 	mux.Handle("GET /", staticHandler(os.DirFS("dist")))
 	log.Printf("listening on http://%s", addr)
-	log.Fatal(http.ListenAndServe(addr, mux))
+	server := &http.Server{
+		Addr:              addr,
+		Handler:           mux,
+		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       30 * time.Second,
+		WriteTimeout:      60 * time.Second,
+		IdleTimeout:       2 * time.Minute,
+	}
+	log.Fatal(server.ListenAndServe())
 }
 
 func newMux() *http.ServeMux {
@@ -27,7 +41,13 @@ func newMux() *http.ServeMux {
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /api/orders", func(w http.ResponseWriter, r *http.Request) {
 		var req checkout.PlaceOrderRequest
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		body := http.MaxBytesReader(w, r.Body, maxBodyBytes)
+		if err := json.NewDecoder(body).Decode(&req); err != nil {
+			var tooLarge *http.MaxBytesError
+			if errors.As(err, &tooLarge) {
+				writeJSON(w, http.StatusRequestEntityTooLarge, checkout.ErrorResponse{Message: "リクエストが大きすぎます"})
+				return
+			}
 			writeJSON(w, http.StatusBadRequest, checkout.ErrorResponse{Message: "リクエストを読み取れません"})
 			return
 		}

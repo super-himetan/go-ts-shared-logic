@@ -22,7 +22,12 @@ func staticHandler(files fs.FS) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		name := strings.TrimPrefix(path.Clean("/"+r.URL.Path), "/")
 		w.Header().Set("Vary", "Accept-Encoding")
-		if _, err := fs.Stat(files, name); err == nil {
+		if info, err := fs.Stat(files, name); err == nil {
+			// The bundle's file list is nobody's business.
+			if info.IsDir() {
+				http.NotFound(w, r)
+				return
+			}
 			if strings.HasPrefix(name, "assets/") {
 				w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
 			} else {
