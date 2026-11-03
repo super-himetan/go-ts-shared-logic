@@ -79,7 +79,7 @@ test("the server recomputes the total and refuses a lower one", async ({ page })
 test("a value Go's int cannot hold is shown as a violation", async ({ page }) => {
   await page.goto("/");
   await page.getByLabel("数量").fill("1.5");
-  await expect(page.locator("#violations")).toHaveText("数量は1〜9で指定してください");
+  await expect(page.locator("#violations")).toHaveText("1行目: 数量は1〜9で指定してください");
   await expect(page.getByRole("button", { name: "注文する" })).toBeDisabled();
 });
 

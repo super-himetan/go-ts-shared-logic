@@ -120,13 +120,13 @@ func Validate(order Order) []Violation {
 	}
 	for i, item := range order.Items {
 		if _, ok := basePrice(item.Drink); !ok {
-			add(fmt.Sprintf("items[%d].drink", i), "メニューにない商品です: %s", item.Drink)
+			add(fmt.Sprintf("items[%d].drink", i), "%d行目: メニューにない商品です: %s", i+1, item.Drink)
 		}
 		if _, ok := sizeSurcharge[item.Size]; !ok {
-			add(fmt.Sprintf("items[%d].size", i), "選べないサイズです: %s", item.Size)
+			add(fmt.Sprintf("items[%d].size", i), "%d行目: 選べないサイズです: %s", i+1, item.Size)
 		}
 		if item.Quantity < 1 || item.Quantity > MaxQuantityPerLine {
-			add(fmt.Sprintf("items[%d].quantity", i), "数量は1〜%dで指定してください", MaxQuantityPerLine)
+			add(fmt.Sprintf("items[%d].quantity", i), "%d行目: 数量は1〜%dで指定してください", i+1, MaxQuantityPerLine)
 		}
 	}
 	if order.Coupon != "" {

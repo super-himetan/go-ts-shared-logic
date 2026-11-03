@@ -306,3 +306,12 @@ func TestDiagnostics(t *testing.T) {
 		})
 	}
 }
+
+// Extract runs on whatever is in an editor's buffer, so nothing may make it panic.
+func FuzzExtract(f *testing.F) {
+	f.Add([]byte("package p\ntype T struct { A int `json:\"a\"`; B []struct{ C map[string]*T } }\n"))
+	f.Add([]byte("package p\nimport t \"time\"\nfunc (x T) MarshalJSON() {}\nfunc F(a ...int, b t.Time) (int, error)\nconst (X T = iota; Y)\n"))
+	f.Fuzz(func(t *testing.T, src []byte) {
+		Extract(src)
+	})
+}
