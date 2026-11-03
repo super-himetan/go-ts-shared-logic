@@ -84,6 +84,64 @@ const hidden = 1
 	}
 }
 
+// Go code can return an unexported const, so the union has to include it.
+func TestUnexportedConstsStayInTheUnion(t *testing.T) {
+	s := extract(t, `package p
+type Color string
+const (
+	Red Color = "red"
+	internalBlue Color = "blue"
+)
+`)
+	if len(s.Diagnostics) != 0 {
+		t.Fatalf("diagnostics: %+v", s.Diagnostics)
+	}
+	if got := s.Types[0].Alias; got != `"red" | "blue"` {
+		t.Errorf("alias = %s", got)
+	}
+	if len(s.Consts) != 1 || s.Consts[0].Name != "Red" {
+		t.Errorf("consts = %+v", s.Consts)
+	}
+}
+
+// A const whose value the parser cannot read could be anything, so no union can be claimed.
+func TestComputedUnexportedConstOpensTheUnion(t *testing.T) {
+	s := extract(t, `package p
+type Color string
+const (
+	Red Color = "red"
+	mixed Color = "a" + "b"
+)
+type Kind int
+const (
+	first Kind = iota
+	second
+)
+`)
+	if len(s.Diagnostics) != 0 {
+		t.Fatalf("diagnostics: %+v", s.Diagnostics)
+	}
+	if got := s.Types[0].Alias; got != "string" {
+		t.Errorf("Color = %s", got)
+	}
+	if got := s.Types[1].Alias; got != "number" {
+		t.Errorf("Kind = %s", got)
+	}
+}
+
+func TestReservedParameterNames(t *testing.T) {
+	s := extract(t, `package p
+func F(class string, function int, await bool, ok bool) {}
+`)
+	var names []string
+	for _, p := range s.Funcs[0].Params {
+		names = append(names, p.Name)
+	}
+	if got := strings.Join(names, " "); got != "class_ function_ await_ ok" {
+		t.Errorf("params = %s", got)
+	}
+}
+
 func TestFuncs(t *testing.T) {
 	s := extract(t, `package p
 type T struct{}
@@ -130,6 +188,8 @@ func TestDiagnostics(t *testing.T) {
 		{"embedded", "package p\ntype A struct{}\ntype B struct { A }\n", "A", "Embedded"},
 		{"computed const", "package p\nconst N = 1 + 1\n", "N", "literal"},
 		{"package main", "package main\n", "main", "package main"},
+		{"MarshalJSON", "package p\ntype T struct{}\nfunc (t T) MarshalJSON() ([]byte, error) { return nil, nil }\n", "MarshalJSON", "customizes its encoding"},
+		{"pointer UnmarshalText", "package p\ntype T struct{}\nfunc (t *T) UnmarshalText(b []byte) error { return nil }\n", "UnmarshalText", "customizes its encoding"},
 		{"syntax", "package p\nfunc F( {\n", "{", "expected"},
 	}
 	for _, tt := range tests {

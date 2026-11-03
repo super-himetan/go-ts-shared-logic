@@ -84,7 +84,11 @@ function renderItems() {
       quantity.setAttribute("aria-label", "数量");
       quantity.max = String(MaxQuantityPerLine);
       quantity.value = String(item.quantity);
-      quantity.oninput = () => update(index, { quantity: Math.trunc(quantity.valueAsNumber) || 0 });
+      // Go's int rejects anything else, so let Validate report it as out of range.
+      quantity.oninput = () => {
+        const value = quantity.valueAsNumber;
+        update(index, { quantity: Number.isSafeInteger(value) ? value : 0 });
+      };
 
       const remove = document.createElement("button");
       remove.type = "button";

@@ -34,3 +34,7 @@ test("a wrong call throws instead of killing the Go runtime", () => {
   expect(() => Price({ items: "nope" })).toThrow("argument 0");
   expect(Validate({ items: [] })).toHaveLength(1);
 });
+
+test.each([1.5, 1e30])("a number Go's int cannot hold throws: %s", (quantity) => {
+  expect(() => Validate({ items: [{ drink: "coffee", size: "S", quantity }] })).toThrow("argument 0");
+});

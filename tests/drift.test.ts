@@ -23,5 +23,6 @@ test("a type JSON cannot carry is an error at its line in the Go file", () => {
   expect(tsc("unsupported")).toEqual([
     expect.stringMatching(/^shared\.go\(5,6\): error go9201: 'int64' can exceed/),
     expect.stringMatching(/^shared\.go\(8,21\): error go9201: This type cannot be sent/),
+    expect.stringMatching(/^shared\.go\(16,16\): error go9201: 'Money' customizes its encoding/),
   ]);
 }, 60_000);

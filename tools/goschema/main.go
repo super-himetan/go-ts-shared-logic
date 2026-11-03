@@ -94,6 +94,28 @@ type extractor struct {
 	declared map[string]bool
 	// literals holds the const values of each named type, which become its union.
 	literals map[string][]string
+	// openTypes have a const whose value cannot be read here, so a union would be a lie.
+	openTypes map[string]bool
+}
+
+// encodingMethods replace what encoding/json writes for a type, which the
+// parser cannot see through.
+var encodingMethods = map[string]bool{
+	"MarshalJSON":   true,
+	"UnmarshalJSON": true,
+	"MarshalText":   true,
+	"UnmarshalText": true,
+}
+
+// reservedWords are valid Go parameter names that TypeScript does not allow.
+var reservedWords = map[string]bool{
+	"arguments": true, "await": true, "catch": true, "class": true, "debugger": true,
+	"delete": true, "do": true, "enum": true, "eval": true, "export": true,
+	"extends": true, "false": true, "finally": true, "function": true, "implements": true,
+	"in": true, "instanceof": true, "let": true, "new": true, "null": true,
+	"private": true, "protected": true, "public": true, "static": true, "super": true,
+	"this": true, "throw": true, "true": true, "try": true, "typeof": true,
+	"void": true, "while": true, "with": true, "yield": true,
 }
 
 func main() {
@@ -117,10 +139,11 @@ func Extract(src []byte) Schema {
 			Consts:      []Const{},
 			Diagnostics: []Diagnostic{},
 		},
-		fset:     token.NewFileSet(),
-		utf16At:  utf16Offsets(src),
-		declared: map[string]bool{},
-		literals: map[string][]string{},
+		fset:      token.NewFileSet(),
+		utf16At:   utf16Offsets(src),
+		declared:  map[string]bool{},
+		literals:  map[string][]string{},
+		openTypes: map[string]bool{},
 	}
 
 	file, err := parser.ParseFile(e.fset, "input.go", src, parser.ParseComments|parser.AllErrors)
@@ -171,20 +194,30 @@ func Extract(src []byte) Schema {
 func (e *extractor) addConsts(gen *ast.GenDecl) {
 	for _, spec := range gen.Specs {
 		value := spec.(*ast.ValueSpec)
+		typeName := ""
+		if ident, ok := value.Type.(*ast.Ident); ok && e.declared[ident.Name] {
+			typeName = ident.Name
+		}
 		for i, name := range value.Names {
-			if !name.IsExported() {
-				continue
-			}
 			var literal string
 			if i < len(value.Values) {
 				literal = jsonLiteral(value.Values[i])
 			}
 			if literal == "" {
-				e.report(codeDeclaration, e.identSpan(name), "Only consts written as a literal can be exported to TypeScript.")
+				if name.IsExported() {
+					e.report(codeDeclaration, e.identSpan(name), "Only consts written as a literal can be exported to TypeScript.")
+				}
+				if typeName != "" {
+					e.openTypes[typeName] = true
+				}
 				continue
 			}
-			if typeName, ok := value.Type.(*ast.Ident); ok && e.declared[typeName.Name] {
-				e.literals[typeName.Name] = append(e.literals[typeName.Name], literal)
+			// Unexported consts are not exported, but Go code can still return them.
+			if typeName != "" {
+				e.literals[typeName] = append(e.literals[typeName], literal)
+			}
+			if !name.IsExported() {
+				continue
 			}
 			e.schema.Consts = append(e.schema.Consts, Const{
 				Name:  name.Name,
@@ -212,7 +245,7 @@ func (e *extractor) addType(gen *ast.GenDecl, spec *ast.TypeSpec) {
 		if t.Fields == nil {
 			t.Fields = []Field{}
 		}
-	} else if literals := e.literals[spec.Name.Name]; len(literals) > 0 {
+	} else if literals := e.literals[spec.Name.Name]; len(literals) > 0 && !e.openTypes[spec.Name.Name] {
 		t.Alias = strings.Join(literals, " | ")
 	} else {
 		t.Alias = e.tsType(spec.Type)
@@ -280,7 +313,11 @@ func (e *extractor) applyTag(f *Field, tag *ast.BasicLit) bool {
 }
 
 func (e *extractor) addFunc(fn *ast.FuncDecl) {
-	if !fn.Name.IsExported() || fn.Recv != nil {
+	if fn.Recv != nil {
+		e.checkEncodingMethod(fn)
+		return
+	}
+	if !fn.Name.IsExported() {
 		return
 	}
 	span := e.identSpan(fn.Name)
@@ -303,6 +340,8 @@ func (e *extractor) addFunc(fn *ast.FuncDecl) {
 			paramName := name.Name
 			if paramName == "_" {
 				paramName = fmt.Sprintf("arg%d", len(f.Params))
+			} else if reservedWords[paramName] {
+				paramName += "_"
 			}
 			f.Params = append(f.Params, Param{Name: paramName, TS: ts})
 		}
@@ -329,6 +368,19 @@ func (e *extractor) addFunc(fn *ast.FuncDecl) {
 		return
 	}
 	e.schema.Funcs = append(e.schema.Funcs, f)
+}
+
+func (e *extractor) checkEncodingMethod(fn *ast.FuncDecl) {
+	if !encodingMethods[fn.Name.Name] || len(fn.Recv.List) == 0 {
+		return
+	}
+	receiver := fn.Recv.List[0].Type
+	if star, ok := receiver.(*ast.StarExpr); ok {
+		receiver = star.X
+	}
+	if ident, ok := receiver.(*ast.Ident); ok && ident.IsExported() {
+		e.report(codeType, e.identSpan(fn.Name), fmt.Sprintf("'%s' customizes its encoding with %s, so its TypeScript type cannot be derived.", ident.Name, fn.Name.Name))
+	}
 }
 
 // tsType matches what encoding/json actually writes. A nil slice or map becomes

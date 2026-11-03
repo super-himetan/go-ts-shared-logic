@@ -8,3 +8,11 @@ type Result struct {
 func Compute(events chan int) Result {
 	return Result{}
 }
+
+type Money struct {
+	Yen int `json:"yen"`
+}
+
+func (m Money) MarshalJSON() ([]byte, error) {
+	return []byte("1"), nil
+}
