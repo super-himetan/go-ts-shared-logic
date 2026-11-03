@@ -105,7 +105,13 @@ Content Mapper が作るのは型だけで、実行時には使われません�
 
 ## エディタ
 
-VS Code で使うには、拡張機能 `TypeScriptTeam.native-preview` を入れ、このフォルダを開きます。mapper が `go` を実行するので、VS Code から `go` にパスが通っている必要があります。
+VS Code で使うには、拡張機能 `TypeScriptTeam.native-preview` を入れ、このフォルダを開きます。mapper と Go 拡張は `go` を実行するので、VS Code から `go` にパスが通っている必要があります。
+
+Dock から起動した VS Code は、ホームディレクトリのシェルの PATH を使います。このリポジトリの `mise.toml` だけでは `go` が見えず、Go 拡張が `Failed to find the "go" binary` と表示します。次を実行してから VS Code を完全に終了し、起動し直してください。
+
+```bash
+mise use -g go@1.27
+```
 
 ## 開発
 
