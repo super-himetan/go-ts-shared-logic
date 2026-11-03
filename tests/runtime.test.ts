@@ -1,7 +1,8 @@
 import { expect, test } from "vitest";
 
 // Dynamic imports, so one module failing to load only fails its own test.
-const timeout = 60_000;
+// A cold TinyGo build takes over a minute in CI.
+const timeout = 180_000;
 
 test("files of one package share a Go runtime", async () => {
   const { Bump } = await import("./testdata/multi/x.go");
