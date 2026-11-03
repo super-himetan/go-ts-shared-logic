@@ -1,3 +1,5 @@
 node_modules/
 dist/
 z/
+test-results/
+playwright-report/

@@ -11,6 +11,6 @@ export default {
     hookTimeout: 180_000,
     testTimeout: 180_000,
     // A cached transform would skip the Go build and run whichever Wasm was built last.
-    experimental: { fsModuleCache: false },
+    fsModuleCache: false,
   },
 };

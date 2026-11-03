@@ -14,7 +14,7 @@ TypeScript 7.1 ベータの [Content Mapper](https://devblogs.microsoft.com/type
 
 ## 試す
 
-Go 1.27 以降、Node.js、pnpm が必要です。[mise](https://mise.jdx.dev/) を使っていれば `mise install` で Go と Node.js が入ります。
+Go 1.27 以降、Node.js、pnpm が必要です。[mise](https://mise.jdx.dev/) を使っていれば `mise install` ですべて入ります。
 
 ```bash
 pnpm install
@@ -65,9 +65,8 @@ shared.go(8,21): error go9201: This type has no JSON form that TypeScript can de
 ## 仕組み
 
 ```text
-                         ┌ tools/goschema (go/parser) ┐
-checkout.go ─┬ tsc / エディタ → Content Mapper → 型
-             ├ Vite → プラグイン → GOOS=js GOARCH=wasm go build → Wasm
+checkout.go ─┬ tsc / エディタ → Content Mapper → goschema → 型
+             ├ Vite プラグイン → goschema と GOOS=js GOARCH=wasm go build → Wasm
              └ server/main.go → 普通の import
 ```
 
@@ -79,6 +78,8 @@ checkout.go ─┬ tsc / エディタ → Content Mapper → 型
 | `tools/goschema/` | Go ファイルの公開宣言を、TypeScript の型と元の位置に変換する |
 | `packages/go-mapper/` | Content Mapper 本体、Vite プラグイン、Wasm のローダー |
 | `bridge/` | JavaScript からの呼び出しを JSON で受ける Go 側の入口 |
+| `tests/` | Wasm と型のテスト |
+| `e2e/` | 本番ビルドをブラウザで動かす Playwright のテスト |
 
 Content Mapper が作るのは型だけで、実行時には使われません。実行時のモジュールは Vite プラグインが作ります。
 
@@ -93,7 +94,8 @@ Content Mapper が作るのは型だけで、実行時には使われません�
 | `string`、`bool` | `string`、`boolean` |
 | `int`、`int32`、`float64` など | `number` |
 | `[]T` | `T[] \| null` |
-| `map[string]T` | `Partial<Record<string, T>> \| null` |
+| `map[string]T`、`map[int]T` | `Partial<Record<string, T>> \| null`、`Partial<Record<number, T>> \| null` |
+| `struct { A int }` | `{ A: number }` |
 | `*T` | `T \| null` |
 | `time.Time` | `string` |
 | `any` | `unknown` |
@@ -114,6 +116,7 @@ Content Mapper が作るのは型だけで、実行時には使われません�
 - `MarshalJSON` などで JSON の形を変える型はエラーにしていますが、別のファイルに書かれたメソッドは検出できません。
 - `const` の union は同じファイルの定数だけから作ります。`Color("blue")` のような変換や別のファイルの定数は型に現れません。
 - ジェネリクス、可変長引数、埋め込みフィールド、リテラル以外の公開 `const` には対応していません。
+- `packages/go-mapper` はこのリポジトリの `bridge` と `tools/goschema` に依存していて、単体では配布できません。
 - `tsc` は mapper のエラーがあると、その先の型エラーを報告しません。
 - 共有できるのは純粋なロジックだけです。DB やファイルを使うコードは Wasm では動きません。
 - `pnpm dev` が自動で再ビルドするのは、import したファイルと同じパッケージの変更だけです。別のパッケージを変えたときは、dev サーバーを再起動します。
@@ -137,4 +140,14 @@ pnpm check
 
 ```bash
 pnpm test
+```
+
+ブラウザのテストは、初回だけブラウザのインストールが必要です。ポート 8787 と 5186 を空けて実行してください。
+
+```bash
+pnpm exec playwright install chromium
+```
+
+```bash
+pnpm e2e
 ```

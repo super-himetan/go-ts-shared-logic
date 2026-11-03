@@ -10,5 +10,5 @@
     "types": ["node"]
   },
   "contentMappers": [{ "package": "go-mapper", "extensions": [".go"] }],
-  "include": ["web", "tests/*.ts"]
+  "include": ["web", "tests/*.ts", "e2e/*.ts", "playwright.config.ts"]
 }

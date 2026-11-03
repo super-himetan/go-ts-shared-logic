@@ -8,9 +8,11 @@
     "dev": "vite --port 5184 --strictPort",
     "server": "go run ./server",
     "build": "vite build",
-    "test": "go test ./... && vitest run"
+    "test": "go test ./... && vitest run",
+    "e2e": "playwright test"
   },
   "devDependencies": {
+    "@playwright/test": "^1.64.1",
     "@types/node": "^24.0.0",
     "go-mapper": "link:./packages/go-mapper",
     "ts-content-mapper": "0.1.1",
